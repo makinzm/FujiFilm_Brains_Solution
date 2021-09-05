@@ -26,7 +26,9 @@ from libs.models import get_fcn
 
 matplotlib.use("Agg")
 
-
+"""
+返り値の指定を行う.
+"""
 def seed_everything(seed=42) -> None:
     random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
@@ -35,10 +37,19 @@ def seed_everything(seed=42) -> None:
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
-
 seed_everything(seed=42)
 
+"""
+https://docs.python.org/ja/3/library/argparse.html
+Parserとは: train.pyに体する説明
 
+prog - プログラミング名
+usage - プログラムの利用方法を記述する文字列
+description - 引数のヘルプの前に表示されるテキスト (デフォルト: none)
+add_help - -h/--help オプションをパーサーに追加する (デフォルト: True)
+
+add_argumentで引数の設定をする
+"""
 def get_parser() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="semantic classification",
@@ -48,18 +59,17 @@ def get_parser() -> argparse.Namespace:
         """,
         add_help=True,
     )
-
     parser.add_argument("config", type=str, help="path of a config file")
-
     return parser.parse_args()
 
-
+"""
+微分の値を使うかどうか
+"""
 def set_requires_grad(nets: nn.Module, requires_grad: bool = False) -> None:
     for net in [nets]:
         if net is not None:
             for param in net.parameters():
                 param.requires_grad = requires_grad
-
 
 def unnormalize(x: torch.Tensor) -> torch.Tensor:
     x = x.transpose(1, 3)
@@ -72,14 +82,17 @@ def unnormalize(x: torch.Tensor) -> torch.Tensor:
 def calc_acc_f1(
     net: nn.Module, dataset: ImageDataset, device: str
 ) -> Tuple[np.ndarray, np.ndarray]:
+    #評価モードに設定
     net.eval()
     preds = []
     labels = []
     for i in range(dataset.__len__()):
         img, label = dataset[i]
         _, h, w = img.shape
+        #縦ベクトルに変換
         img = torch.unsqueeze(img, dim=0)
 
+        #勾配を更新しないように設定
         with torch.no_grad():
             pred = net(img.to(device))
             _, pred = torch.max(pred, dim=1)
@@ -89,11 +102,11 @@ def calc_acc_f1(
     preds = np.array(preds)
     labels = np.array(labels)
 
+    #サイキットラーンの関数で計算
     return accuracy_score(labels, preds), f1_score(labels, preds)
 
-
 def plot_log(data, save_model_name="model"):
-    plt.cla()
+    plt.cla() #現在の軸をクリア
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
     ax1.plot(data["net"], label="loss ")
@@ -121,9 +134,12 @@ def check_dir(save_model_name: str) -> None:
     if not os.path.exists("./checkpoints/" + save_model_name[:-6]):
         os.mkdir("./checkpoints/" + save_model_name[:-6])
 
-
+"""
+最適化の設定
+https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html
+"""
 def get_optimizer(net: nn.Module, parser: Config) -> Tuple[nn.Module, Any]:
-    optimizer: torch.optim.Optimizer
+    optimizer: torch.optim.Optimizer #なくてもok
     if parser.optimizer == "Adam":
         beta1, beta2 = 0.5, 0.999
         optimizer = torch.optim.AdamW(
